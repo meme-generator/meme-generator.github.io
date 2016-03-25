@@ -24459,10 +24459,10 @@ paper-item span {
       <div class="flexchild"></div>
       <paper-card>
 
-          <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect">
+          <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect" vertical-align="bottom" horizontal-align="left">
             <paper-menu class="dropdown-content" selected="{{selectedMemeIndex}}">
               <template is="dom-repeat" items="[[memesDataResponse.data.memes]]" as="meme">
-                <paper-item id="meme-option-{{ index }}">
+                <paper-item>
                   <iron-image class="meme-thumbnail" sizing="cover" preload="" fade="" src="[[meme.url]]"></iron-image>
                   <span>[[meme.name]]</span>
                 </paper-item>
@@ -24507,7 +24507,6 @@ paper-item span {
           selectedMemeIndex: {
             type: Number,
             value: 0
-            // observer: '_selectedMemeIndexChanged'
           }
         },
         listeners: {
@@ -24521,20 +24520,7 @@ paper-item span {
           this.$.memeImageGenerator.generateImage();
         },
 
-        /**
-         * Clear a specified input
-         */
-        clearInput: function(e) {
-          var propertyToClear = e.target.parentElement.getAttribute('data-property-to-clear');
-          this[propertyToClear] = '';
-        },
-
         ready: function() {
-          this.items = [
-            'heading',
-            'footer',
-            'filepath'
-          ];
         },
 
         nextPage: function() {
