@@ -18901,6 +18901,399 @@ context. You should place this element as a child of `<body>` whenever possible.
     });
   </script>
 </dom-module>
+
+
+<dom-module id="iron-autogrow-textarea" assetpath="../bower_components/iron-autogrow-textarea/">
+
+  <style>
+    :host {
+      display: inline-block;
+      position: relative;
+      width: 400px;
+      border: 1px solid;
+      padding: 2px;
+      -moz-appearance: textarea;
+      -webkit-appearance: textarea;
+      overflow: hidden;
+    }
+
+    .mirror-text {
+      visibility: hidden;
+      word-wrap: break-word;
+    }
+
+    .fit {
+      @apply(--layout-fit);
+    }
+
+    textarea {
+      position: relative;
+      outline: none;
+      border: none;
+      resize: none;
+      background: inherit;
+      color: inherit;
+      /* see comments in template */
+      width: 100%;
+      height: 100%;
+      font-size: inherit;
+      font-family: inherit;
+      line-height: inherit;
+      text-align: inherit;
+      @apply(--iron-autogrow-textarea);
+    }
+
+    ::content textarea:invalid {
+      box-shadow: none;
+    }
+
+    textarea::-webkit-input-placeholder {
+      @apply(--iron-autogrow-textarea-placeholder);
+    }
+
+    textarea:-moz-placeholder {
+      @apply(--iron-autogrow-textarea-placeholder);
+    }
+
+    textarea::-moz-placeholder {
+      @apply(--iron-autogrow-textarea-placeholder);
+    }
+
+    textarea:-ms-input-placeholder {
+      @apply(--iron-autogrow-textarea-placeholder);
+    }
+  </style>
+  <template>
+    
+    
+    <div id="mirror" class="mirror-text" aria-hidden="true">&nbsp;</div>
+
+    
+    <div class="textarea-container fit">
+      <textarea id="textarea" name$="[[name]]" autocomplete$="[[autocomplete]]" autofocus$="[[autofocus]]" inputmode$="[[inputmode]]" placeholder$="[[placeholder]]" readonly$="[[readonly]]" required$="[[required]]" disabled$="[[disabled]]" rows$="[[rows]]" maxlength$="[[maxlength]]"></textarea>
+    </div>
+  </template>
+</dom-module>
+
+<script>
+
+  Polymer({
+
+    is: 'iron-autogrow-textarea',
+
+    behaviors: [
+      Polymer.IronFormElementBehavior,
+      Polymer.IronValidatableBehavior,
+      Polymer.IronControlState
+    ],
+
+    properties: {
+
+      /**
+       * Use this property instead of `value` for two-way data binding.
+       * This property will be deprecated in the future. Use `value` instead.
+       * @type {string|number}
+       */
+      bindValue: {
+        observer: '_bindValueChanged',
+        type: String
+      },
+
+      /**
+       * The initial number of rows.
+       *
+       * @attribute rows
+       * @type number
+       * @default 1
+       */
+      rows: {
+        type: Number,
+        value: 1,
+        observer: '_updateCached'
+      },
+
+      /**
+       * The maximum number of rows this element can grow to until it
+       * scrolls. 0 means no maximum.
+       *
+       * @attribute maxRows
+       * @type number
+       * @default 0
+       */
+      maxRows: {
+       type: Number,
+       value: 0,
+       observer: '_updateCached'
+      },
+
+      /**
+       * Bound to the textarea's `autocomplete` attribute.
+       */
+      autocomplete: {
+        type: String,
+        value: 'off'
+      },
+
+      /**
+       * Bound to the textarea's `autofocus` attribute.
+       */
+      autofocus: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
+       * Bound to the textarea's `inputmode` attribute.
+       */
+      inputmode: {
+        type: String
+      },
+
+      /**
+       * Bound to the textarea's `placeholder` attribute.
+       */
+      placeholder: {
+        type: String
+      },
+
+      /**
+       * Bound to the textarea's `readonly` attribute.
+       */
+      readonly: {
+        type: String
+      },
+
+      /**
+       * Set to true to mark the textarea as required.
+       */
+      required: {
+        type: Boolean
+      },
+
+      /**
+       * The maximum length of the input value.
+       */
+      maxlength: {
+        type: Number
+      }
+
+    },
+
+    listeners: {
+      'input': '_onInput'
+    },
+
+    observers: [
+      '_onValueChanged(value)'
+    ],
+
+    /**
+     * Returns the underlying textarea.
+     * @type HTMLTextAreaElement
+     */
+    get textarea() {
+      return this.$.textarea;
+    },
+
+    /**
+     * Returns textarea's selection start.
+     * @type Number
+     */
+    get selectionStart() {
+      return this.$.textarea.selectionStart;
+    },
+
+    /**
+     * Returns textarea's selection end.
+     * @type Number
+     */
+    get selectionEnd() {
+      return this.$.textarea.selectionEnd;
+    },
+
+    /**
+     * Sets the textarea's selection start.
+     */
+    set selectionStart(value) {
+      this.$.textarea.selectionStart = value;
+    },
+
+    /**
+     * Sets the textarea's selection end.
+     */
+    set selectionEnd(value) {
+      this.$.textarea.selectionEnd = value;
+    },
+
+    /**
+     * Returns true if `value` is valid. The validator provided in `validator`
+     * will be used first, if it exists; otherwise, the `textarea`'s validity
+     * is used.
+     * @return {boolean} True if the value is valid.
+     */
+    validate: function() {
+      // Empty, non-required input is valid.
+      if (!this.required && this.value == '') {
+        this.invalid = false;
+        return true;
+      }
+
+      var valid;
+      if (this.hasValidator()) {
+        valid = Polymer.IronValidatableBehavior.validate.call(this, this.value);
+      } else {
+        valid = this.$.textarea.validity.valid;
+        this.invalid = !valid;
+      }
+      this.fire('iron-input-validate');
+      return valid;
+    },
+
+    _bindValueChanged: function() {
+      var textarea = this.textarea;
+      if (!textarea) {
+        return;
+      }
+
+      // If the bindValue changed manually, then we need to also update
+      // the underlying textarea's value. Otherwise this change was probably
+      // generated from the _onInput handler, and the two values are already
+      // the same.
+      if (textarea.value !== this.bindValue) {
+        textarea.value = !(this.bindValue || this.bindValue === 0) ? '' : this.bindValue;
+      }
+
+      this.value = this.bindValue;
+      this.$.mirror.innerHTML = this._valueForMirror();
+      // manually notify because we don't want to notify until after setting value
+      this.fire('bind-value-changed', {value: this.bindValue});
+    },
+
+    _onInput: function(event) {
+      this.bindValue = event.path ? event.path[0].value : event.target.value;
+    },
+
+    _constrain: function(tokens) {
+      var _tokens;
+      tokens = tokens || [''];
+      // Enforce the min and max heights for a multiline input to avoid measurement
+      if (this.maxRows > 0 && tokens.length > this.maxRows) {
+        _tokens = tokens.slice(0, this.maxRows);
+      } else {
+        _tokens = tokens.slice(0);
+      }
+      while (this.rows > 0 && _tokens.length < this.rows) {
+        _tokens.push('');
+      }
+      // Use &#160; instead &nbsp; of to allow this element to be used in XHTML.
+      return _tokens.join('<br/>') + '&#160;';
+    },
+
+    _valueForMirror: function() {
+      var input = this.textarea;
+      if (!input) {
+        return;
+      }
+      this.tokens = (input && input.value) ? input.value.replace(/&/gm, '&amp;').replace(/"/gm, '&quot;').replace(/'/gm, '&#39;').replace(/</gm, '&lt;').replace(/>/gm, '&gt;').split('\n') : [''];
+      return this._constrain(this.tokens);
+    },
+
+    _updateCached: function() {
+      this.$.mirror.innerHTML = this._constrain(this.tokens);
+    },
+
+    _onValueChanged: function() {
+      this.bindValue = this.value;
+    }
+  });
+</script>
+
+
+<dom-module id="paper-textarea" assetpath="../bower_components/paper-input/">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+
+    <paper-input-container no-label-float$="[[noLabelFloat]]" always-float-label="[[_computeAlwaysFloatLabel(alwaysFloatLabel,placeholder)]]" auto-validate$="[[autoValidate]]" disabled$="[[disabled]]" invalid="[[invalid]]">
+
+      <label hidden$="[[!label]]">[[label]]</label>
+
+      <iron-autogrow-textarea id="input" class="paper-input-input" bind-value="{{value}}" disabled$="[[disabled]]" autocomplete$="[[autocomplete]]" autofocus$="[[autofocus]]" inputmode$="[[inputmode]]" name$="[[name]]" placeholder$="[[placeholder]]" readonly$="[[readonly]]" required$="[[required]]" maxlength$="[[maxlength]]" autocapitalize$="[[autocapitalize]]" rows$="[[rows]]" max-rows$="[[maxRows]]" on-change="_onChange"></iron-autogrow-textarea>
+
+      <template is="dom-if" if="[[errorMessage]]">
+        <paper-input-error>[[errorMessage]]</paper-input-error>
+      </template>
+
+      <template is="dom-if" if="[[charCounter]]">
+        <paper-input-char-counter></paper-input-char-counter>
+      </template>
+
+    </paper-input-container>
+  </template>
+</dom-module>
+
+<script>
+  Polymer({
+    is: 'paper-textarea',
+
+    behaviors: [
+      Polymer.PaperInputBehavior,
+      Polymer.IronFormElementBehavior
+    ],
+
+    properties: {
+      _ariaLabelledBy: {
+        observer: '_ariaLabelledByChanged',
+        type: String
+      },
+
+      _ariaDescribedBy: {
+        observer: '_ariaDescribedByChanged',
+        type: String
+      },
+
+      /**
+       * The initial number of rows.
+       *
+       * @attribute rows
+       * @type number
+       * @default 1
+       */
+      rows: {
+        type: Number,
+        value: 1
+      },
+
+      /**
+       * The maximum number of rows this element can grow to until it
+       * scrolls. 0 means no maximum.
+       *
+       * @attribute maxRows
+       * @type number
+       * @default 0
+       */
+      maxRows: {
+       type: Number,
+       value: 0
+      }
+    },
+
+    _ariaLabelledByChanged: function(ariaLabelledBy) {
+      this.$.input.textarea.setAttribute('aria-labelledby', ariaLabelledBy);
+    },
+
+    _ariaDescribedByChanged: function(ariaDescribedBy) {
+      this.$.input.textarea.setAttribute('aria-describedby', ariaDescribedBy);
+    },
+
+    get _focusableElement() {
+      return this.$.input.textarea;
+    },
+  });
+</script>
 <script>
 
   /**
@@ -23935,11 +24328,50 @@ paper-fab.download {
   left: 50%;
   background: #03a9f4;
 }
-
+paper-card {
+  padding: 24px;
+  width: 300px;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+paper-card:hover, paper-card:focus {
+  box-shadow: 0 3px 4px 0 rgba(0, 0, 0, 0.14),
+  0 1px 8px 0 rgba(0, 0, 0, 0.12),
+  0 3px 3px -2px rgba(0, 0, 0, 0.4);
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+paper-card:active {
+  box-shadow: 0 4px 5px 0 rgba(0, 0, 0, 0.14),
+  0 1px 10px 0 rgba(0, 0, 0, 0.12),
+  0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.meme-card {
+  padding: 0;
+  height: 300px;
+  width: 300px;
+}
+.meme {
+  height:300px;
+  width: 300px;
+}
+.meme-header {
+  top: 0;
+}
+.meme-footer {
+  top: 200px;
+}
+.meme-thumbnail {
+  width:50px;
+  height:50px;
+  background-color: lightgray;
+}
 .meme-text, .meme-card-image {
+  font-size: 34px;
+  position: absolute;
+  color: white;
+  padding: 0;
   max-width: 350px;
   max-height: 200px;
-  --paper-card-header-color: var(--primary-background-color);
   font-family: Impact, Charcoal, sans-serif;
   font-weight: 900;
   text-transform: uppercase;
@@ -23966,19 +24398,13 @@ paper-fab.download {
   position: absolute;
   top: 16px;
   left: 16px;
-  font-size: 24px;
+  font-size: 18px;
 }
 #pageLeft {
   left: 24px;
 }
 #pageRight {
   right: 24px;
-}
-p {
-  font-size: 44px;
-  position: absolute;
-  top: 65px;
-  color: white;
 }
 .hiding {
   display: none;
@@ -24012,10 +24438,10 @@ paper-item span {
 
         <template is="dom-repeat" items="[[memesDataResponse.data.memes]]">
           <iron-swipeable-container swipe-style="curve">
-            <paper-card heading="{{footer}}" image="[[item.url]]" class="meme-card-image">
-              <div class="heading meme-text">
-                {{greeting}}
-              </div>
+            <paper-card class="meme-card">
+              <iron-image class="meme" sizing="cover" preload="" fade="" src="[[item.url]]"></iron-image>
+              <p class="meme-header meme-text">{{header}}</p>
+              <p class="meme-footer meme-text">{{footer}}</p>
             </paper-card>
           </iron-swipeable-container>
         </template>
@@ -24028,32 +24454,31 @@ paper-item span {
     <div class="container flex-horizontal">
       <div class="flexchild"></div>
 
-      <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect">
-        <paper-menu class="dropdown-content" selected="{{selectedMemeIndex}}">
-          <template is="dom-repeat" items="[[memesDataResponse.data.memes]]" as="meme">
-            <paper-item id="meme-option-{{ index }}">
-              <img src="[[meme.url]]" width="50" height="50">
-              <span>[[meme.name]]</span>
-            </paper-item>
-          </template>
-        </paper-menu>
-      </paper-dropdown-menu>
+      <paper-card>
+
+        <div class="container flex-horizontal">
+          <div class="flexchild"></div>
+          <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect">
+            <paper-menu class="dropdown-content" selected="{{selectedMemeIndex}}">
+              <template is="dom-repeat" items="[[memesDataResponse.data.memes]]" as="meme">
+                <paper-item id="meme-option-{{ index }}">
+                  <iron-image class="meme-thumbnail" sizing="cover" preload="" fade="" src="[[meme.url]]"></iron-image>
+                  <span>[[meme.name]]</span>
+                </paper-item>
+              </template>
+            </paper-menu>
+          </paper-dropdown-menu>
+          <div class="flexchild"></div>
+        </div>
+
+
+        <paper-textarea label="Top line" is="iron-input" value="{{header::input}}"></paper-textarea>
+        <paper-textarea label="Bottom line" is="iron-input" value="{{footer::input}}"></paper-textarea>
+
+      </paper-card>
+
       <div class="flexchild"></div>
     </div>
-
-    <paper-input-container>
-      <paper-icon-button prefix="" icon="create"></paper-icon-button>
-      <label>Top Line</label>
-      <input is="iron-input" value="{{greeting::input}}">
-      <paper-icon-button suffix="" icon="close" on-tap="clearInput" data-property-to-clear="greeting"></paper-icon-button>
-    </paper-input-container>
-
-    <paper-input-container>
-      <paper-icon-button prefix="" icon="create"></paper-icon-button>
-      <label>Bottom Line</label>
-      <input is="iron-input" value="{{footer::input}}">
-      <paper-icon-button suffix="" icon="close" on-tap="clearInput" data-property-to-clear="footer"></paper-icon-button>
-    </paper-input-container>
 
     <html-canvas-image id="memeImageGenerator" container="memePages" filename="meme.png"></html-canvas-image>
     <paper-fab icon="file-download" title="Download" on-tap="saveImage" id="pageRight"></paper-fab>
@@ -24072,7 +24497,7 @@ paper-item span {
             type: Array,
             notify: true
           },
-          greeting: {
+          header: {
             type: String,
             value: '',
             notify: true
