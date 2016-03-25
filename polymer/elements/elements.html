@@ -9003,7 +9003,7 @@ this.fire('dom-change');
 
       #sizedImgDiv {
         @apply(--layout-fit);
-
+        border-radius: 2px;
         display: none;
       }
 
@@ -13497,7 +13497,7 @@ this.fire('dom-change');
       .header .title-text {
         padding: 16px;
         font-size: 24px;
-        font-weight: 900;
+        font-weight: 400;
         color: var(--paper-card-header-color, #000);
 
         @apply(--paper-card-header-text);
@@ -24363,6 +24363,9 @@ paper-card:active {
 #memeDropdownSelect {
   width: 100%;
 }
+iron-image {
+  border-radius: 2px;
+}
 .meme-thumbnail {
   width:50px;
   height:50px;
@@ -24396,13 +24399,6 @@ paper-card:active {
   user-select: none;
   cursor: default;
 }
-.heading {
-  color: #ffffff;
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  font-size: 18px;
-}
 #pageLeft {
   left: 24px;
 }
@@ -24418,7 +24414,6 @@ paper-card:active {
 .flexchild {
   @apply(--layout-flex);
 }
-
 paper-item img {
   width: 50px;
   height: 50px;
