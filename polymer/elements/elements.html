@@ -23936,7 +23936,7 @@ paper-fab.download {
   background: #03a9f4;
 }
 
-paper-card {
+.meme-text, .meme-card-image {
   max-width: 350px;
   max-height: 200px;
   --paper-card-header-color: var(--primary-background-color);
@@ -23989,6 +23989,20 @@ p {
 .flexchild {
   @apply(--layout-flex);
 }
+
+paper-item img {
+  width: 50px;
+  height: 50px;
+}
+paper-item span {
+  font-family: Roboto, 'Helvetica Neue', Helvetica, sans-serif;
+  margin: 16px;
+  -webkit-box-flex: 1;
+  -webkit-flex-grow: 1;
+      -ms-flex-positive: 1;
+          flex-grow: 1;
+}
+
 </style>
 
     <div class="container flex-horizontal">
@@ -23998,8 +24012,8 @@ p {
 
         <template is="dom-repeat" items="[[memesDataResponse.data.memes]]">
           <iron-swipeable-container swipe-style="curve">
-            <paper-card heading="{{footer}}" image="[[item.url]]">
-              <div class="heading">
+            <paper-card heading="{{footer}}" image="[[item.url]]" class="meme-card-image">
+              <div class="heading meme-text">
                 {{greeting}}
               </div>
             </paper-card>
@@ -24010,7 +24024,6 @@ p {
 
       <div class="flexchild"></div>
     </div>
-
 
     <div class="container flex-horizontal">
       <div class="flexchild"></div>
