@@ -24355,10 +24355,13 @@ paper-card:active {
   width: 300px;
 }
 .meme-header {
-  top: 0;
+  top: -18px;
 }
 .meme-footer {
-  top: 200px;
+  top: 180px;
+}
+#memeDropdownSelect {
+  width: 100%;
 }
 .meme-thumbnail {
   width:50px;
@@ -24456,8 +24459,6 @@ paper-item span {
 
       <paper-card>
 
-        <div class="container flex-horizontal">
-          <div class="flexchild"></div>
           <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect">
             <paper-menu class="dropdown-content" selected="{{selectedMemeIndex}}">
               <template is="dom-repeat" items="[[memesDataResponse.data.memes]]" as="meme">
@@ -24468,9 +24469,6 @@ paper-item span {
               </template>
             </paper-menu>
           </paper-dropdown-menu>
-          <div class="flexchild"></div>
-        </div>
-
 
         <paper-textarea label="Top line" is="iron-input" value="{{header::input}}"></paper-textarea>
         <paper-textarea label="Bottom line" is="iron-input" value="{{footer::input}}"></paper-textarea>
