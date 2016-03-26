@@ -9003,7 +9003,7 @@ this.fire('dom-change');
 
       #sizedImgDiv {
         @apply(--layout-fit);
-        border-radius: 2px;
+
         display: none;
       }
 
@@ -15976,7 +15976,7 @@ CSS properties               | Action
     _onCaptureClick: function(event) {
       var overlay = /** @type {?} */ (this.currentOverlay());
       // Check if clicked outside of any overlay.
-      var target = Polymer.dom(event).rootTarget;
+      var target = /** @type {Element} */ (Polymer.dom(event).rootTarget);
       if (overlay && this._overlayParent(target) !== overlay) {
         overlay._onCaptureClick(event);
       }
@@ -16681,7 +16681,7 @@ context. You should place this element as a child of `<body>` whenever possible.
   };
 
   /** @polymerBehavior */
-  Polymer.IronOverlayBehavior = [Polymer.IronA11yKeysBehavior, Polymer.IronFitBehavior, Polymer.IronResizableBehavior, Polymer.IronOverlayBehaviorImpl];
+  Polymer.IronOverlayBehavior = [Polymer.IronFitBehavior, Polymer.IronResizableBehavior, Polymer.IronOverlayBehaviorImpl];
 
   /**
   * Fired after the `iron-overlay` opens.
@@ -24234,6 +24234,10 @@ if (!window.Promise) {
 
 
 <dom-module id="html-canvas-image" assetpath="../bower_components/html-canvas-image/">
+  <template>
+  <iron-ajax id="base64API" method="POST" content-type="application/x-www-form-urlencoded" url="https://safe-wave-14056.herokuapp.com/base64" handle-as="json" on-response="_imageUrlGenerated">
+  </iron-ajax>
+  </template>
   <script>
     (function() {
       'use strict';
@@ -24251,33 +24255,21 @@ if (!window.Promise) {
 
           filename: {
             type: String
-          }
-        },
+          },
 
-        downloadMedia: function(strData, strFileName, strMimeType) {
-          var D = document,
-              A = arguments,
-              downloadLinkEle = D.createElement('a');
+          ajaxBody: {
+            type: String
+          },
 
-          if ('download' in downloadLinkEle) {
-            downloadLinkEle.href = strData;
-            downloadLinkEle.setAttribute('download', strFileName);
-
-            D.body.appendChild(downloadLinkEle);
-            setTimeout(function() {
-                var e = D.createEvent('MouseEvents');
-                e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
-                downloadLinkEle.dispatchEvent(e); // fire click
-                D.body.removeChild(downloadLinkEle);
-            }, 66);
-            return true;
+          debugMode: {
+            type: Boolean,
+            value: false
           }
         },
 
         /**
-         * Performs an AJAX request to the specified URL.
+         * Hit our base64API Url after getting the base64 string from the html2canvas lib
          *
-         * @return {!IronRequestElement}
          */
         generateImage: function() {
           var containerEle = document.getElementById(this.container);
@@ -24288,12 +24280,25 @@ if (!window.Promise) {
           var self = this;
 
           html2canvas(containerEle, {
-            logging: true,
+            logging: self.debugMode,
             useCORS: true,
             onrendered: function(canvas) {
-              var img = canvas.toDataURL('image/png');
-              self.downloadMedia(img, self.filename, 'image/png');
+              self.$.base64API.body = {
+                'base64': canvas.toDataURL(self.mimeType)
+              };
+              if(self.debugMode) {
+                console.log('==== DEBUG base64 Start ====');
+                console.log(self.$.base64API.body.base64);
+                console.log('==== DEBUG base64 End ====');
+              }
+              self.$.base64API.generateRequest();
             }
+          });
+        },
+
+        _imageUrlGenerated: function(e, detail) {
+          this.fire('html-canvas-image-base64-created', {
+            imageUrl: detail.xhr.response.imageURL
           });
         },
 
@@ -24438,7 +24443,9 @@ paper-item span {
         <template is="dom-repeat" items="[[memesDataResponse.data.memes]]">
           <iron-swipeable-container swipe-style="curve">
             <paper-card class="meme-card">
-              <iron-image style="height: 300px; width: 300px; background-color: lightgray;" sizing="cover" preload="" fade="" src="[[item.url]]"></iron-image>
+              
+              
+              <img src="[[item.url]]" style="height: 300px; width: 300px; background-color: lightgray;">
               <p class="meme-header meme-text">{{header}}</p>
               <p class="meme-footer meme-text">{{footer}}</p>
             </paper-card>
@@ -24467,12 +24474,14 @@ paper-item span {
 
         <paper-textarea label="Top line" is="iron-input" value="{{header::input}}"></paper-textarea>
         <paper-textarea label="Bottom line" is="iron-input" value="{{footer::input}}"></paper-textarea>
-
+         {{memeDownloadStatus}}
+         <a href="{{memeDownloadUrl}}" target="_blank">{{memeDownloadUrl}}</a>
       </paper-card>
       <div class="flexchild"></div>
     </div>
 
-    <html-canvas-image id="memeImageGenerator" container="memePages" filename="meme.png"></html-canvas-image>
+    <html-canvas-image id="memeImageGenerator" container="memePages" filename="meme.jpg"></html-canvas-image>
+
     <paper-fab icon="file-download" title="Download" on-tap="saveImage" id="pageRight"></paper-fab>
 
   </template>
@@ -24502,17 +24511,35 @@ paper-item span {
           selectedMemeIndex: {
             type: Number,
             value: 0
+          },
+          memeDownloadStatus: {
+            type: String,
+            value: '',
+            notify: true
+          },
+          memeDownloadUrl: {
+            type: String,
+            value: '',
+            notify: true
           }
         },
         listeners: {
-          'iron-swipe': 'nextPage'
+          'iron-swipe': 'nextPage',
+          'html-canvas-image-base64-created': '_htmlCanvasImageCreated'
         },
 
         /**
          * Generate image
          */
         saveImage: function() {
+          this.memeDownloadUrl = '';
+          this.memeDownloadStatus = 'Generating Image...';
           this.$.memeImageGenerator.generateImage();
+        },
+
+        _htmlCanvasImageCreated: function(data) {
+          this.memeDownloadStatus = '';
+          this.memeDownloadUrl = data.detail.imageUrl;
         },
 
         ready: function() {
