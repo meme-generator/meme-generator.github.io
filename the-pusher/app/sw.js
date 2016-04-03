@@ -36,7 +36,7 @@ self.addEventListener('push', function(event) {
   event.waitUntil(
     self.registration.pushManager.getSubscription().then(function(subscription) {
       fetch('./payload.json', {
-        method: 'post',
+        method: 'get',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
