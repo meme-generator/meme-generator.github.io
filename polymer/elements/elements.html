@@ -9560,19 +9560,16 @@ this.fire('dom-change');
      */
     setItemSelected: function(item, isSelected) {
       if (item != null) {
-        if (isSelected !== this.isSelected(item)) {
-          // proceed to update selection only if requested state differs from current
-          if (isSelected) {
-            this.selection.push(item);
-          } else {
-            var i = this.selection.indexOf(item);
-            if (i >= 0) {
-              this.selection.splice(i, 1);
-            }
+        if (isSelected) {
+          this.selection.push(item);
+        } else {
+          var i = this.selection.indexOf(item);
+          if (i >= 0) {
+            this.selection.splice(i, 1);
           }
-          if (this.selectCallback) {
-            this.selectCallback(item, isSelected);
-          }
+        }
+        if (this.selectCallback) {
+          this.selectCallback(item, isSelected);
         }
       }
     },
@@ -9643,14 +9640,8 @@ this.fire('dom-change');
     properties: {
 
       /**
-       * If you want to use an attribute value or property of an element for
-       * `selected` instead of the index, set this to the name of the attribute
-       * or property. Hyphenated values are converted to camel case when used to
-       * look up the property of a selectable element. Camel cased values are
-       * *not* converted to hyphenated values for attribute lookup. It's
-       * recommended that you provide the hyphenated form of the name so that
-       * selection works in both cases. (Use `attr-or-property-name` instead of
-       * `attrOrPropertyName`.)
+       * If you want to use the attribute value of an element for `selected` instead of the index,
+       * set this to the name of the attribute.
        */
       attrForSelected: {
         type: String,
@@ -9659,7 +9650,6 @@ this.fire('dom-change');
 
       /**
        * Gets or sets the selected element. The default is to use the index of the item.
-       * @type {string|number}
        */
       selected: {
         type: String,
@@ -9716,7 +9706,6 @@ this.fire('dom-change');
       items: {
         type: Array,
         readOnly: true,
-        notify: true,
         value: function() {
           return [];
         }
@@ -9739,8 +9728,7 @@ this.fire('dom-change');
     },
 
     observers: [
-      '_updateAttrForSelected(attrForSelected)',
-      '_updateSelected(selected)'
+      '_updateSelected(attrForSelected, selected)'
     ],
 
     created: function() {
@@ -9752,7 +9740,7 @@ this.fire('dom-change');
       this._observer = this._observeItems(this);
       this._updateItems();
       if (!this._shouldUpdateSelection) {
-        this._updateSelected();
+        this._updateSelected(this.attrForSelected,this.selected)
       }
       this._addListener(this.activateEvent);
     },
@@ -9779,7 +9767,7 @@ this.fire('dom-change');
      * Selects the given value.
      *
      * @method select
-     * @param {string|number} value the value to select.
+     * @param {string} value the value to select.
      */
     select: function(value) {
       this.selected = value;
@@ -9806,22 +9794,6 @@ this.fire('dom-change');
       this.selected = this._indexToValue(index);
     },
 
-    /**
-     * Force a synchronous update of the `items` property.
-     *
-     * NOTE: Consider listening for the `iron-items-changed` event to respond to
-     * updates to the set of selectable items after updates to the DOM list and
-     * selection state have been made.
-     *
-     * WARNING: If you are using this method, you should probably consider an
-     * alternate approach. Synchronously querying for items is potentially
-     * slow for many use cases. The `items` property will update asynchronously
-     * on its own to reflect selectable items in the DOM.
-     */
-    forceSynchronousItemUpdate: function() {
-      this._updateItems();
-    },
-
     get _shouldUpdateSelection() {
       return this.selected != null;
     },
@@ -9843,12 +9815,6 @@ this.fire('dom-change');
       var nodes = Polymer.dom(this).queryDistributedElements(this.selectable || '*');
       nodes = Array.prototype.filter.call(nodes, this._bindFilterItem);
       this._setItems(nodes);
-    },
-
-    _updateAttrForSelected: function() {
-      if (this._shouldUpdateSelection) {
-        this.selected = this._indexToValue(this.indexOf(this.selectedItem));        
-      }
     },
 
     _updateSelected: function() {
@@ -9891,8 +9857,7 @@ this.fire('dom-change');
     },
 
     _valueForItem: function(item) {
-      var propValue = item[Polymer.CaseMap.dashToCamelCase(this.attrForSelected)];
-      return propValue != undefined ? propValue : item.getAttribute(this.attrForSelected);
+      return item[this.attrForSelected] || item.getAttribute(this.attrForSelected);
     },
 
     _applySelection: function(item, isSelected) {
@@ -9913,18 +9878,18 @@ this.fire('dom-change');
     // observe items change under the given node.
     _observeItems: function(node) {
       return Polymer.dom(node).observeNodes(function(mutations) {
+        // Let other interested parties know about the change so that
+        // we don't have to recreate mutation observers everywher.
+        this.fire('iron-items-changed', mutations, {
+          bubbles: false,
+          cancelable: false
+        });
+
         this._updateItems();
 
         if (this._shouldUpdateSelection) {
           this._updateSelected();
         }
-
-        // Let other interested parties know about the change so that
-        // we don't have to recreate mutation observers everywhere.
-        this.fire('iron-items-changed', mutations, {
-          bubbles: false,
-          cancelable: false
-        });
       });
     },
 
@@ -10039,7 +10004,7 @@ this.fire('dom-change');
     },
 
     observers: [
-      '_updateSelected(selectedValues.splices)'
+      '_updateSelected(attrForSelected, selectedValues)'
     ],
 
     /**
@@ -10047,7 +10012,7 @@ this.fire('dom-change');
      * `value` will be toggled; otherwise the `value` will be selected.
      *
      * @method select
-     * @param {string|number} value the value to select.
+     * @param {string} value the value to select.
      */
     select: function(value) {
       if (this.multi) {
@@ -10070,18 +10035,6 @@ this.fire('dom-change');
         (this.selectedValues != null && this.selectedValues.length);
     },
 
-    _updateAttrForSelected: function() {
-      if (!this.multi) {
-        Polymer.IronSelectableBehavior._updateAttrForSelected.apply(this);
-      } else if (this._shouldUpdateSelection) {
-        this.selectedValues = this.selectedItems.map(function(selectedItem) {
-          return this._indexToValue(this.indexOf(selectedItem));        
-        }, this).filter(function(unfilteredValue) {
-          return unfilteredValue != null;
-        }, this);
-      }
-    },
-
     _updateSelected: function() {
       if (this.multi) {
         this._selectMulti(this.selectedValues);
@@ -10091,16 +10044,11 @@ this.fire('dom-change');
     },
 
     _selectMulti: function(values) {
+      this._selection.clear();
       if (values) {
-        var selectedItems = this._valuesToItems(values);
-        // clear all but the current selected items
-        this._selection.clear(selectedItems);
-        // select only those not selected yet
-        for (var i = 0; i < selectedItems.length; i++) {
-          this._selection.setItemSelected(selectedItems[i], true);
+        for (var i = 0; i < values.length; i++) {
+          this._selection.setItemSelected(this._valueToItem(values[i]), true);
         }
-      } else {
-        this._selection.clear();
       }
     },
 
@@ -10123,12 +10071,6 @@ this.fire('dom-change');
         this.splice('selectedValues',i,1);
       }
       this._selection.setItemSelected(this._valueToItem(value), unselected);
-    },
-
-    _valuesToItems: function(values) {
-      return (values == null) ? null : values.map(function(value) {
-        return this._valueToItem(value);
-      }, this);
     }
   };
 
@@ -10236,6 +10178,17 @@ this.fire('dom-change');
        * If true, then the container will not allow swiping.
        */
       disabled: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
+       * If true, then the swiped element will not be removed from the DOM.
+       * Useful for touch-friendly carousels and other web components that need to
+       * reuse the element.
+       * TODO: optionally return to original position or at the end of the 'deck'.
+       */
+      renewable: {
         type: Boolean,
         value: false
       },
@@ -10399,12 +10352,17 @@ this.fire('dom-change');
     _onTransitionEnd: function(event) {
       var target = event.currentTarget;
 
-      if (this._swipeComplete && event.propertyName === 'opacity') {
-        Polymer.dom(this).removeChild(target);
+      if (this._swipeComplete) {
+        if (this.renewable) {
+          target.style.transform = 'translate3d(0, 0, 0) rotate(0)';
+          target.style.opacity = '1';
+        } else if (event.propertyName === 'opacity') {
+          Polymer.dom(this).removeChild(target);
+        }
         this.fire('iron-swipe',
-            { direction: this._direction > 0 ? 'right' : 'left',
-              target:target
-            });
+                { direction: this._direction > 0 ? 'right' : 'left',
+                  target:target
+                });
       }
     }
 
@@ -11433,6 +11391,13 @@ this.fire('dom-change');
     var SPACE_KEY = /^space(bar)?/;
 
     /**
+     * Matches ESC key.
+     *
+     * Value from: http://w3c.github.io/uievents-key/#key-Escape
+     */
+    var ESC_KEY = /^escape$/;
+
+    /**
      * Transforms the key.
      * @param {string} key The KeyBoardEvent.key
      * @param {Boolean} [noSpecialChars] Limits the transformation to
@@ -11444,6 +11409,8 @@ this.fire('dom-change');
         var lKey = key.toLowerCase();
         if (lKey === ' ' || SPACE_KEY.test(lKey)) {
           validKey = 'space';
+        } else if (ESC_KEY.test(lKey)) {
+          validKey = 'esc';
         } else if (lKey.length == 1) {
           if (!noSpecialChars || KEY_CHAR.test(lKey)) {
             validKey = lKey;
@@ -11487,10 +11454,10 @@ this.fire('dom-change');
           validKey = 'f' + (keyCode - 112);
         } else if (keyCode >= 48 && keyCode <= 57) {
           // top 0-9 keys
-          validKey = String(48 - keyCode);
+          validKey = String(keyCode - 48);
         } else if (keyCode >= 96 && keyCode <= 105) {
           // num pad 0-9
-          validKey = String(96 - keyCode);
+          validKey = String(keyCode - 96);
         } else {
           validKey = KEY_CODE[keyCode];
         }
@@ -11655,6 +11622,13 @@ this.fire('dom-change');
         this._resetKeyEventListeners();
       },
 
+      /**
+       * Returns true if a keyboard event matches `eventString`.
+       *
+       * @param {KeyboardEvent} event
+       * @param {string} eventString
+       * @return {boolean}
+       */
       keyboardEventMatchesKeys: function(event, eventString) {
         var keyCombos = parseEventString(eventString);
         for (var i = 0; i < keyCombos.length; ++i) {
@@ -13696,6 +13670,87 @@ this.fire('dom-change');
   };
 
 </script>
+
+
+<dom-module id="iron-a11y-announcer" assetpath="../bower_components/iron-a11y-announcer/">
+  <style>
+    :host {
+      display: inline-block;
+      position: fixed;
+      clip: rect(0px,0px,0px,0px);
+    }
+  </style>
+
+  <template>
+    <div aria-live$="[[mode]]">[[_text]]</div>
+  </template>
+
+  <script>
+
+    (function() {
+      'use strict';
+
+      Polymer.IronA11yAnnouncer = Polymer({
+        is: 'iron-a11y-announcer',
+
+        properties: {
+
+          /**
+           * The value of mode is used to set the `aria-live` attribute
+           * for the element that will be announced. Valid values are: `off`,
+           * `polite` and `assertive`.
+           */
+          mode: {
+            type: String,
+            value: 'polite'
+          },
+
+          _text: {
+            type: String,
+            value: ''
+          }
+        },
+
+        created: function() {
+          if (!Polymer.IronA11yAnnouncer.instance) {
+            Polymer.IronA11yAnnouncer.instance = this;
+          }
+
+          document.body.addEventListener('iron-announce', this._onIronAnnounce.bind(this));
+        },
+
+        /**
+         * Cause a text string to be announced by screen readers.
+         *
+         * @param {string} text The text that should be announced.
+         */
+        announce: function(text) {
+          this._text = '';
+          this.async(function() {
+            this._text = text;
+          }, 100);
+        },
+
+        _onIronAnnounce: function(event) {
+          if (event.detail && event.detail.text) {
+            this.announce(event.detail.text);
+          }
+        }
+      });
+
+      Polymer.IronA11yAnnouncer.instance = null;
+
+      Polymer.IronA11yAnnouncer.requestAvailability = function() {
+        if (!Polymer.IronA11yAnnouncer.instance) {
+          Polymer.IronA11yAnnouncer.instance = document.createElement('iron-a11y-announcer');
+        }
+
+        document.body.appendChild(Polymer.IronA11yAnnouncer.instance);
+      };
+    })();
+
+  </script>
+</dom-module>
 <script>
 
   /**
@@ -13874,18 +13929,22 @@ is separate from validation, and `allowed-pattern` does not affect how the input
       },
 
       /**
-       * Set to true to prevent the user from entering invalid input. The new input characters are
-       * matched with `allowedPattern` if it is set, otherwise it will use the `type` attribute (only
-       * supported for `type=number`).
+       * Set to true to prevent the user from entering invalid input. If `allowedPattern` is set,
+       * any character typed by the user will be matched against that pattern, and rejected if it's not a match.
+       * Pasted input will have each character checked individually; if any character
+       * doesn't match `allowedPattern`, the entire pasted string will be rejected.
+       * If `allowedPattern` is not set, it will use the `type` attribute (only supported for `type=number`).
        */
       preventInvalidInput: {
         type: Boolean
       },
 
       /**
-       * Regular expression expressing a set of characters to enforce the validity of input characters.
-       * The recommended value should follow this format: `[a-ZA-Z0-9.+-!;:]` that list the characters 
-       * allowed as input.
+       * Regular expression that list the characters allowed as input.
+       * This pattern represents the allowed characters for the field; as the user inputs text,
+       * each individual character will be checked against the pattern (rather than checking
+       * the entire value as a whole). The recommended format should be a list of allowed characters;
+       * for example, `[a-zA-Z0-9.+-!;:]`
        */
       allowedPattern: {
         type: String,
@@ -13907,6 +13966,46 @@ is separate from validation, and `allowed-pattern` does not affect how the input
     listeners: {
       'input': '_onInput',
       'keypress': '_onKeypress'
+    },
+
+    registered: function() {
+      // Feature detect whether we need to patch dispatchEvent (i.e. on FF and IE).
+      if (!this._canDispatchEventOnDisabled()) {
+        this._origDispatchEvent = this.dispatchEvent;
+        this.dispatchEvent = this._dispatchEventFirefoxIE;
+      }
+    },
+
+    created: function() {
+      Polymer.IronA11yAnnouncer.requestAvailability();
+    },
+
+    _canDispatchEventOnDisabled: function() {
+      var input = document.createElement('input');
+      var canDispatch = false;
+      input.disabled = true;
+
+      input.addEventListener('feature-check-dispatch-event', function() {
+        canDispatch = true;
+      });
+
+      try {
+        input.dispatchEvent(new Event('feature-check-dispatch-event'));
+      } catch(e) {}
+
+      return canDispatch;
+    },
+
+    _dispatchEventFirefoxIE: function() {
+      // Due to Firefox bug, events fired on disabled form controls can throw
+      // errors; furthermore, neither IE nor Firefox will actually dispatch
+      // events from disabled form controls; as such, we toggle disable around
+      // the dispatch to allow notifying properties to notify
+      // See issue #47 for details
+      var disabled = this.disabled;
+      this.disabled = false;
+      this._origDispatchEvent.apply(this, arguments);
+      this.disabled = disabled;
     },
 
     get _patternRegExp() {
@@ -13949,6 +14048,7 @@ is separate from validation, and `allowed-pattern` does not affect how the input
       if (this.preventInvalidInput && !this._patternAlreadyChecked) {
         var valid = this._checkPatternValidity();
         if (!valid) {
+          this._announceInvalidCharacter('Invalid string of characters not entered.');
           this.value = this._previousValidInput;
         }
       }
@@ -14009,6 +14109,7 @@ is separate from validation, and `allowed-pattern` does not affect how the input
       var thisChar = String.fromCharCode(event.charCode);
       if (this._isPrintable(event) && !regexp.test(thisChar)) {
         event.preventDefault();
+        this._announceInvalidCharacter('Invalid character ' + thisChar + ' not entered.');
       }
     },
 
@@ -14031,23 +14132,29 @@ is separate from validation, and `allowed-pattern` does not affect how the input
      * @return {boolean} True if the value is valid.
      */
     validate: function() {
-      // Empty, non-required input is valid.
-      if (!this.required && this.value == '') {
-        this.invalid = false;
-        return true;
+      // First, check what the browser thinks. Some inputs (like type=number)
+      // behave weirdly and will set the value to "" if something invalid is
+      // entered, but will set the validity correctly.
+      var valid =  this.checkValidity();
+
+      // Only do extra checking if the browser thought this was valid.
+      if (valid) {
+        // Empty, required input is invalid
+        if (this.required && this.value === '') {
+          valid = false;
+        } else if (this.hasValidator()) {
+          valid = Polymer.IronValidatableBehavior.validate.call(this, this.value);
+        }
       }
 
-      var valid;
-      if (this.hasValidator()) {
-        valid = Polymer.IronValidatableBehavior.validate.call(this, this.value);
-      } else {
-        valid = this.checkValidity();
-        this.invalid = !valid;
-      }
+      this.invalid = !valid;
       this.fire('iron-input-validate');
       return valid;
-    }
+    },
 
+    _announceInvalidCharacter: function(message) {
+      this.fire('iron-announce', { text: message });
+    }
   });
 
   /*
@@ -15800,16 +15907,82 @@ CSS properties               | Action
     },
 
     /**
+     * Brings the overlay at the specified index to the front.
+     * @param {number} i
+     * @private
+     */
+    _bringOverlayAtIndexToFront: function(i) {
+      var overlay = this._overlays[i];
+      var lastI = this._overlays.length - 1;
+      // Ensure always-on-top overlay stays on top.
+      if (!overlay.alwaysOnTop && this._overlays[lastI].alwaysOnTop) {
+        lastI--;
+      }
+      // If already the top element, return.
+      if (!overlay || i >= lastI) {
+        return;
+      }
+      // Update z-index to be on top.
+      var minimumZ = Math.max(this.currentOverlayZ(), this._minimumZ);
+      if (this._getZ(overlay) <= minimumZ) {
+        this._applyOverlayZ(overlay, minimumZ);
+      }
+
+      // Shift other overlays behind the new on top.
+      while (i < lastI) {
+        this._overlays[i] = this._overlays[i + 1];
+        i++;
+      }
+      this._overlays[lastI] = overlay;
+    },
+
+    /**
+     * Adds the overlay and updates its z-index if it's opened, or removes it if it's closed.
+     * Also updates the backdrop z-index.
+     * @param {Element} overlay
+     */
+    addOrRemoveOverlay: function(overlay) {
+      if (overlay.opened) {
+        this.addOverlay(overlay);
+      } else {
+        this.removeOverlay(overlay);
+      }
+      this.trackBackdrop();
+    },
+
+    /**
      * Tracks overlays for z-index and focus management.
+     * Ensures the last added overlay with always-on-top remains on top.
      * @param {Element} overlay
      */
     addOverlay: function(overlay) {
-      var minimumZ = Math.max(this.currentOverlayZ(), this._minimumZ);
-      this._overlays.push(overlay);
-      var newZ = this.currentOverlayZ();
+      var i = this._overlays.indexOf(overlay);
+      if (i >= 0) {
+        this._bringOverlayAtIndexToFront(i);
+        return;
+      }
+      var insertionIndex = this._overlays.length;
+      var currentOverlay = this._overlays[insertionIndex - 1];
+      var minimumZ = Math.max(this._getZ(currentOverlay), this._minimumZ);
+      var newZ = this._getZ(overlay);
+
+      // Ensure always-on-top overlay stays on top.
+      if (currentOverlay && currentOverlay.alwaysOnTop && !overlay.alwaysOnTop) {
+        // This bumps the z-index of +2.
+        this._applyOverlayZ(currentOverlay, minimumZ);
+        insertionIndex--;
+        // Update minimumZ to match previous overlay's z-index.
+        var previousOverlay = this._overlays[insertionIndex - 1];
+        minimumZ = Math.max(this._getZ(previousOverlay), this._minimumZ);
+      }
+
+      // Update z-index and insert overlay.
       if (newZ <= minimumZ) {
         this._applyOverlayZ(overlay, minimumZ);
       }
+      this._overlays.splice(insertionIndex, 0, overlay);
+
+      // Get focused node.
       var element = this.deepActiveElement;
       overlay.restoreFocusNode = this._overlayParent(element) ? null : element;
     },
@@ -15819,16 +15992,17 @@ CSS properties               | Action
      */
     removeOverlay: function(overlay) {
       var i = this._overlays.indexOf(overlay);
-      if (i >= 0) {
-        this._overlays.splice(i, 1);
-        this._setZ(overlay, '');
+      if (i === -1) {
+        return;
+      }
+      this._overlays.splice(i, 1);
+      this._setZ(overlay, '');
 
-        var node = overlay.restoreFocusOnClose ? overlay.restoreFocusNode : null;
-        overlay.restoreFocusNode = null;
-        // Focus back only if still contained in document.body
-        if (node && Polymer.dom(document.body).deepContains(node)) {
-          node.focus();
-        }
+      var node = overlay.restoreFocusOnClose ? overlay.restoreFocusNode : null;
+      overlay.restoreFocusNode = null;
+      // Focus back only if still contained in document.body
+      if (node && Polymer.dom(document.body).deepContains(node)) {
+        node.focus();
       }
     },
 
@@ -15874,9 +16048,9 @@ CSS properties               | Action
     },
 
     /**
-     * @param {Element} overlay The overlay that updated its withBackdrop.
+     * Updates the backdrop z-index.
      */
-    trackBackdrop: function(overlay) {
+    trackBackdrop: function() {
       this.backdropElement.style.zIndex = this.backdropZ();
     },
 
@@ -15969,15 +16143,29 @@ CSS properties               | Action
     },
 
     /**
+     * Returns the deepest overlay in the path.
+     * @param {Array<Element>=} path
+     * @return {Element|undefined}
+     * @private
+     */
+    _overlayInPath: function(path) {
+      path = path || [];
+      for (var i = 0; i < path.length; i++) {
+        if (path[i]._manager === this) {
+          return path[i];
+        }
+      }
+    },
+
+    /**
      * Ensures the click event is delegated to the right overlay.
      * @param {!Event} event
      * @private
      */
     _onCaptureClick: function(event) {
       var overlay = /** @type {?} */ (this.currentOverlay());
-      // Check if clicked outside of any overlay.
-      var target = /** @type {Element} */ (Polymer.dom(event).rootTarget);
-      if (overlay && this._overlayParent(target) !== overlay) {
+      // Check if clicked outside of top overlay.
+      if (overlay && this._overlayInPath(Polymer.dom(event).path) !== overlay) {
         overlay._onCaptureClick(event);
       }
     },
@@ -16249,6 +16437,13 @@ context. You should place this element as a child of `<body>` whenever possible.
       },
 
       /**
+       * Set to true to keep overlay always on top.
+       */
+      alwaysOnTop: {
+        type: Boolean
+      },
+
+      /**
        * Shortcut to access to the overlay manager.
        * @private
        * @type {Polymer.IronOverlayManagerClass}
@@ -16428,16 +16623,13 @@ context. You should place this element as a child of `<body>` whenever possible.
         return;
       }
 
+      this._manager.addOrRemoveOverlay(this);
+
       this.__isAnimating = true;
 
       if (this.opened) {
         this._prepareRenderOpened();
-      } else {
-        this._manager.removeOverlay(this);
       }
-
-      this._manager.trackBackdrop(this);
-
       if (this._openChangedAsync) {
         this.cancelAsync(this._openChangedAsync);
       }
@@ -16454,7 +16646,7 @@ context. You should place this element as a child of `<body>` whenever possible.
           this._renderClosed();
         }
         this._openChangedAsync = null;
-      }, 1);
+      });
     },
 
     _canceledChanged: function() {
@@ -16472,7 +16664,7 @@ context. You should place this element as a child of `<body>` whenever possible.
         this.__shouldRemoveTabIndex = false;
       }
       if (this.opened) {
-        this._manager.trackBackdrop(this);
+        this._manager.trackBackdrop();
         if (this.withBackdrop) {
           this.backdropElement.prepare();
           // Give time to be added to document.
@@ -16490,8 +16682,6 @@ context. You should place this element as a child of `<body>` whenever possible.
      * @protected
      */
     _prepareRenderOpened: function() {
-
-      this._manager.addOverlay(this);
 
       // Needed to calculate the size of the overlay so that transitions on its size
       // will have the correct starting points.
@@ -16907,11 +17097,6 @@ context. You should place this element as a child of `<body>` whenever possible.
         return;
       }
 
-      if(this.animationConfig.value && typeof this.animationConfig.value === 'function') {
-      	this._warn(this._logf('playAnimation', "Please put 'animationConfig' inside of your components 'properties' object instead of outside of it."));
-      	return;
-      }
-
       // type is optional
       var thisConfig;
       if (type) {
@@ -17146,11 +17331,6 @@ context. You should place this element as a child of `<body>` whenever possible.
        * @param {HTMLElement} element The element that should lock scroll.
        */
       pushScrollLock: function(element) {
-        // Prevent pushing the same element twice
-        if (this._lockingElements.indexOf(element) >= 0) {
-          return;
-        }
-
         if (this._lockingElements.length === 0) {
           this._lockScrollInteractions();
         }
@@ -17242,11 +17422,9 @@ context. You should place this element as a child of `<body>` whenever possible.
       },
 
       _scrollInteractionHandler: function(event) {
-        var scrolledElement =
-            /** @type {HTMLElement} */(Polymer.dom(event).rootTarget);
         if (Polymer
               .IronDropdownScrollManager
-              .elementIsScrollLocked(scrolledElement)) {
+              .elementIsScrollLocked(event.target)) {
           if (event.type === 'keydown' &&
               !Polymer.IronDropdownScrollManager._isScrollingKeypress(event)) {
             return;
@@ -17273,13 +17451,13 @@ context. You should place this element as a child of `<body>` whenever possible.
         document.body.style.overflowY = 'hidden';
 
         // Modern `wheel` event for mouse wheel scrolling:
-        document.addEventListener('wheel', this._scrollInteractionHandler, true);
+        window.addEventListener('wheel', this._scrollInteractionHandler, true);
         // Older, non-standard `mousewheel` event for some FF:
-        document.addEventListener('mousewheel', this._scrollInteractionHandler, true);
+        window.addEventListener('mousewheel', this._scrollInteractionHandler, true);
         // IE:
-        document.addEventListener('DOMMouseScroll', this._scrollInteractionHandler, true);
+        window.addEventListener('DOMMouseScroll', this._scrollInteractionHandler, true);
         // Mobile devices can scroll on touch move:
-        document.addEventListener('touchmove', this._scrollInteractionHandler, true);
+        window.addEventListener('touchmove', this._scrollInteractionHandler, true);
         // Capture keydown to prevent scrolling keys (pageup, pagedown etc.)
         document.addEventListener('keydown', this._scrollInteractionHandler, true);
       },
@@ -17289,10 +17467,10 @@ context. You should place this element as a child of `<body>` whenever possible.
         document.body.style.overflowX = this._originalBodyStyles.overflowX;
         document.body.style.overflowY = this._originalBodyStyles.overflowY;
 
-        document.removeEventListener('wheel', this._scrollInteractionHandler, true);
-        document.removeEventListener('mousewheel', this._scrollInteractionHandler, true);
-        document.removeEventListener('DOMMouseScroll', this._scrollInteractionHandler, true);
-        document.removeEventListener('touchmove', this._scrollInteractionHandler, true);
+        window.removeEventListener('wheel', this._scrollInteractionHandler, true);
+        window.removeEventListener('mousewheel', this._scrollInteractionHandler, true);
+        window.removeEventListener('DOMMouseScroll', this._scrollInteractionHandler, true);
+        window.removeEventListener('touchmove', this._scrollInteractionHandler, true);
         document.removeEventListener('keydown', this._scrollInteractionHandler, true);
       }
     };
@@ -17400,7 +17578,8 @@ context. You should place this element as a child of `<body>` whenever possible.
            * it is opened.
            */
           positionTarget: {
-            type: Object
+            type: Object,
+            observer: '_positionTargetChanged'
           },
 
           /**
@@ -17445,6 +17624,15 @@ context. You should place this element as a child of `<body>` whenever possible.
           allowOutsideScroll: {
             type: Boolean,
             value: false
+          },
+
+          /**
+           * We memoize the positionTarget bounding rectangle so that we can
+           * limit the number of times it is queried per resize / relayout.
+           * @type {?Object}
+           */
+          _positionRectMemo: {
+            type: Object
           }
         },
 
@@ -17453,13 +17641,13 @@ context. You should place this element as a child of `<body>` whenever possible.
         },
 
         observers: [
-          '_updateOverlayPosition(positionTarget, verticalAlign, horizontalAlign, verticalOffset, horizontalOffset)'
+          '_updateOverlayPosition(verticalAlign, horizontalAlign, verticalOffset, horizontalOffset)'
         ],
 
         attached: function() {
-          this.positionTarget = this.positionTarget || this._defaultPositionTarget;
-          // Memoize this to avoid expensive calculations & relayouts.
-          this._isRTL = window.getComputedStyle(this).direction == 'rtl';
+          if (this.positionTarget === undefined) {
+            this.positionTarget = this._defaultPositionTarget;
+          }
         },
 
         /**
@@ -17471,10 +17659,16 @@ context. You should place this element as a child of `<body>` whenever possible.
 
         /**
          * The element that should be focused when the dropdown opens.
-         * @deprecated
          */
         get _focusTarget() {
           return this.focusTarget || this.containedElement;
+        },
+
+        /**
+         * Whether the text direction is RTL
+         */
+        _isRTL: function() {
+          return window.getComputedStyle(this).direction == 'rtl';
         },
 
         /**
@@ -17492,32 +17686,31 @@ context. You should place this element as a child of `<body>` whenever possible.
         },
 
         /**
-         * The horizontal align value, accounting for the RTL/LTR text direction.
+         * The bounding rect of the position target.
          */
-        get _localeHorizontalAlign() {
-          // In RTL, "left" becomes "right".
-          if (this._isRTL) {
-            return this.horizontalAlign === 'right' ? 'left' : 'right';
-          } else {
-            return this.horizontalAlign;
+        get _positionRect() {
+          if (!this._positionRectMemo && this.positionTarget) {
+            this._positionRectMemo = this.positionTarget.getBoundingClientRect();
           }
+
+          return this._positionRectMemo;
         },
 
         /**
          * The horizontal offset value used to position the dropdown.
-         * @param {ClientRect} dropdownRect
-         * @param {ClientRect} positionRect
-         * @param {boolean=false} fromRight
-         * @return {number} pixels
-         * @private
          */
-        _horizontalAlignTargetValue: function(dropdownRect, positionRect, fromRight) {
+        get _horizontalAlignTargetValue() {
           var target;
-          if (fromRight) {
-            target = document.documentElement.clientWidth - positionRect.right - (this._fitWidth - dropdownRect.right);
+
+          // In RTL, the direction flips, so what is "right" in LTR becomes "left".
+          var isRTL = this._isRTL();
+          if ((!isRTL && this.horizontalAlign === 'right') ||
+              (isRTL && this.horizontalAlign === 'left')) {
+            target = document.documentElement.clientWidth - this._positionRect.right;
           } else {
-            target = positionRect.left - dropdownRect.left;
+            target = this._positionRect.left;
           }
+
           target += this.horizontalOffset;
 
           return Math.max(target, 0);
@@ -17525,22 +17718,31 @@ context. You should place this element as a child of `<body>` whenever possible.
 
         /**
          * The vertical offset value used to position the dropdown.
-         * @param {ClientRect} dropdownRect
-         * @param {ClientRect} positionRect
-         * @param {boolean=false} fromBottom
-         * @return {number} pixels
-         * @private
          */
-        _verticalAlignTargetValue: function(dropdownRect, positionRect, fromBottom) {
+        get _verticalAlignTargetValue() {
           var target;
-          if (fromBottom) {
-            target = document.documentElement.clientHeight - positionRect.bottom - (this._fitHeight - dropdownRect.bottom);
+
+          if (this.verticalAlign === 'bottom') {
+            target = document.documentElement.clientHeight - this._positionRect.bottom;
           } else {
-            target = positionRect.top - dropdownRect.top;
+            target = this._positionRect.top;
           }
+
           target += this.verticalOffset;
 
           return Math.max(target, 0);
+        },
+
+        /**
+         * The horizontal align value, accounting for the RTL/LTR text direction.
+         */
+        get _localeHorizontalAlign() {
+          // In RTL, "left" becomes "right".
+          if (this._isRTL()) {
+            return this.horizontalAlign === 'right' ? 'left' : 'right';
+          } else {
+            return this.horizontalAlign;
+          }
         },
 
         /**
@@ -17553,9 +17755,12 @@ context. You should place this element as a child of `<body>` whenever possible.
             this.cancel();
           } else {
             this.cancelAnimation();
-            this.sizingTarget = this.containedElement || this.sizingTarget;
-            this._updateAnimationConfig();
+            this._prepareDropdown();
             Polymer.IronOverlayBehaviorImpl._openedChanged.apply(this, arguments);
+          }
+
+          if (this.opened) {
+            this._focusContent();
           }
         },
 
@@ -17568,9 +17773,6 @@ context. You should place this element as a child of `<body>` whenever possible.
           }
 
           if (!this.noAnimations && this.animationConfig && this.animationConfig.open) {
-            if (this.withBackdrop) {
-              this.backdropElement.open();
-            }
             this.$.contentWrapper.classList.add('animating');
             this.playAnimation('open');
           } else {
@@ -17584,9 +17786,6 @@ context. You should place this element as a child of `<body>` whenever possible.
         _renderClosed: function() {
           Polymer.IronDropdownScrollManager.removeScrollLock(this);
           if (!this.noAnimations && this.animationConfig && this.animationConfig.close) {
-            if (this.withBackdrop) {
-              this.backdropElement.close();
-            }
             this.$.contentWrapper.classList.add('animating');
             this.playAnimation('close');
           } else {
@@ -17603,10 +17802,42 @@ context. You should place this element as a child of `<body>` whenever possible.
         _onNeonAnimationFinish: function() {
           this.$.contentWrapper.classList.remove('animating');
           if (this.opened) {
-            Polymer.IronOverlayBehaviorImpl._finishRenderOpened.apply(this);
+            Polymer.IronOverlayBehaviorImpl._renderOpened.apply(this);
           } else {
-            Polymer.IronOverlayBehaviorImpl._finishRenderClosed.apply(this);
+            Polymer.IronOverlayBehaviorImpl._renderClosed.apply(this);
           }
+        },
+
+        /**
+         * Called when an `iron-resize` event fires.
+         */
+        _onIronResize: function() {
+          var containedElement = this.containedElement;
+          var scrollTop;
+          var scrollLeft;
+
+          if (containedElement) {
+            scrollTop = containedElement.scrollTop;
+            scrollLeft = containedElement.scrollLeft;
+          }
+
+          if (this.opened) {
+            this._updateOverlayPosition();
+          }
+
+          Polymer.IronOverlayBehaviorImpl._onIronResize.apply(this, arguments);
+
+          if (containedElement) {
+            containedElement.scrollTop = scrollTop;
+            containedElement.scrollLeft = scrollLeft;
+          }
+        },
+
+        /**
+         * Called when the `positionTarget` property changes.
+         */
+        _positionTargetChanged: function() {
+          this._updateOverlayPosition();
         },
 
         /**
@@ -17641,85 +17872,56 @@ context. You should place this element as a child of `<body>` whenever possible.
         },
 
         /**
+         * Prepares the dropdown for opening by updating measured layout
+         * values.
+         */
+        _prepareDropdown: function() {
+          this.sizingTarget = this.containedElement || this.sizingTarget;
+          this._updateAnimationConfig();
+          this._updateOverlayPosition();
+        },
+
+        /**
          * Updates the overlay position based on configured horizontal
-         * and vertical alignment.
+         * and vertical alignment, and re-memoizes these values for the sake
+         * of behavior in `IronFitBehavior`.
          */
         _updateOverlayPosition: function() {
-          if (this.isAttached) {
-            // This triggers iron-resize, and iron-overlay-behavior will call refit if needed.
-            this.notifyResize();
+          this._positionRectMemo = null;
+
+          if (!this.positionTarget) {
+            return;
+          }
+
+          this.style[this._localeHorizontalAlign] =
+            this._horizontalAlignTargetValue + 'px';
+
+          this.style[this.verticalAlign] =
+            this._verticalAlignTargetValue + 'px';
+
+          // NOTE(cdata): We re-memoize inline styles here, otherwise
+          // calling `refit` from `IronFitBehavior` will reset inline styles
+          // to whatever they were when the dropdown first opened.
+          if (this._fitInfo) {
+            this._fitInfo.inlineStyle[this.horizontalAlign] =
+              this.style[this.horizontalAlign];
+
+            this._fitInfo.inlineStyle[this.verticalAlign] =
+              this.style[this.verticalAlign];
           }
         },
 
         /**
-         * Useful to call this after the element, the window, or the `fitInfo`
-         * element has been resized. Will maintain the scroll position.
+         * Focuses the configured focus target.
          */
-        refit: function () {
-          if (!this.opened) {
-            return
-          }
-          var containedElement = this.containedElement;
-          var scrollTop;
-          var scrollLeft;
-
-          if (containedElement) {
-            scrollTop = containedElement.scrollTop;
-            scrollLeft = containedElement.scrollLeft;
-          }
-          Polymer.IronFitBehavior.refit.apply(this, arguments);
-
-          if (containedElement) {
-            containedElement.scrollTop = scrollTop;
-            containedElement.scrollLeft = scrollLeft;
-          }
-        },
-
-        /**
-         * Resets the target element's position and size constraints, and clear
-         * the memoized data.
-         */
-        resetFit: function() {
-          Polymer.IronFitBehavior.resetFit.apply(this, arguments);
-
-          var hAlign = this._localeHorizontalAlign;
-          var vAlign = this.verticalAlign;
-          // Set to 0, 0 in order to discover any offset caused by parent stacking contexts.
-          this.style[hAlign] = this.style[vAlign] = '0px';
-
-          var dropdownRect = this.getBoundingClientRect();
-          var positionRect = this.positionTarget.getBoundingClientRect();
-          var horizontalValue = this._horizontalAlignTargetValue(dropdownRect, positionRect, hAlign === 'right');
-          var verticalValue = this._verticalAlignTargetValue(dropdownRect, positionRect, vAlign === 'bottom');
-
-          this.style[hAlign] = horizontalValue + 'px';
-          this.style[vAlign] = verticalValue + 'px';
-        },
-
-        /**
-         * Overridden from `IronFitBehavior`.
-         * Ensure positionedBy has correct values for horizontally & vertically.
-         */
-        _discoverInfo: function() {
-          Polymer.IronFitBehavior._discoverInfo.apply(this, arguments);
-          // Note(valdrin): in Firefox, an element with style `position: fixed; bottom: 90vh; height: 20vh`
-          // would have `getComputedStyle(element).top < 0` (instead of being `auto`) http://jsbin.com/cofired/3/edit?html,output
-          // This would cause IronFitBehavior's `constrain` to wrongly calculate sizes
-          // (it would use `top` instead of `bottom`), so we ensure we give the correct values.
-          this._fitInfo.positionedBy.horizontally = this._localeHorizontalAlign;
-          this._fitInfo.positionedBy.vertically = this.verticalAlign;
-        },
-
-        /**
-         * Apply focus to focusTarget or containedElement
-         */
-        _applyFocus: function () {
-          var focusTarget = this.focusTarget || this.containedElement;
-          if (focusTarget && this.opened && !this.noAutoFocus) {
-            focusTarget.focus();
-          } else {
-            Polymer.IronOverlayBehaviorImpl._applyFocus.apply(this, arguments);
-          }
+        _focusContent: function() {
+          // NOTE(cdata): This is async so that it can attempt the focus after
+          // `display: none` is removed from the element.
+          this.async(function() {
+            if (this._focusTarget) {
+              this._focusTarget.focus();
+            }
+          });
         }
       });
     })();
@@ -19359,6 +19561,8 @@ context. You should place this element as a child of `<body>` whenever possible.
      * @param {string|number} value the value to select.
      */
     select: function(value) {
+      // Cancel automatically focusing a default item if the menu received focus
+      // through a user action selecting a particular item.
       if (this._defaultFocusAsync) {
         this.cancelAsync(this._defaultFocusAsync);
         this._defaultFocusAsync = null;
@@ -19529,8 +19733,6 @@ context. You should place this element as a child of `<body>` whenever possible.
         return;
       }
 
-      this.blur();
-
       // clear the cached focus item
       this._defaultFocusAsync = this.async(function() {
         // focus the selected item when the menu receives focus, or the first item
@@ -19541,11 +19743,10 @@ context. You should place this element as a child of `<body>` whenever possible.
 
         if (selectedItem) {
           this._setFocusedItem(selectedItem);
-        } else {
+        } else if (this.items[0]) {
           this._setFocusedItem(this.items[0]);
         }
-      // async 1ms to wait for `select` to get called from `_itemActivate`
-      }, 1);
+      });
     },
 
     /**
@@ -20551,87 +20752,6 @@ context. You should place this element as a child of `<body>` whenever possible.
 </script>
 
 
-<dom-module id="iron-a11y-announcer" assetpath="../bower_components/iron-a11y-announcer/">
-  <style>
-    :host {
-      display: inline-block;
-      position: fixed;
-      clip: rect(0px,0px,0px,0px);
-    }
-  </style>
-
-  <template>
-    <div aria-live$="[[mode]]">[[_text]]</div>
-  </template>
-
-  <script>
-
-    (function() {
-      'use strict';
-
-      Polymer.IronA11yAnnouncer = Polymer({
-        is: 'iron-a11y-announcer',
-
-        properties: {
-
-          /**
-           * The value of mode is used to set the `aria-live` attribute
-           * for the element that will be announced. Valid values are: `off`,
-           * `polite` and `assertive`.
-           */
-          mode: {
-            type: String,
-            value: 'polite'
-          },
-
-          _text: {
-            type: String,
-            value: ''
-          }
-        },
-
-        created: function() {
-          if (!Polymer.IronA11yAnnouncer.instance) {
-            Polymer.IronA11yAnnouncer.instance = this;
-          }
-
-          document.body.addEventListener('iron-announce', this._onIronAnnounce.bind(this));
-        },
-
-        /**
-         * Cause a text string to be announced by screen readers.
-         *
-         * @param {string} text The text that should be announced.
-         */
-        announce: function(text) {
-          this._text = '';
-          this.async(function() {
-            this._text = text;
-          }, 100);
-        },
-
-        _onIronAnnounce: function(event) {
-          if (event.detail && event.detail.text) {
-            this.announce(event.detail.text);
-          }
-        }
-      });
-
-      Polymer.IronA11yAnnouncer.instance = null;
-
-      Polymer.IronA11yAnnouncer.requestAvailability = function() {
-        if (!Polymer.IronA11yAnnouncer.instance) {
-          Polymer.IronA11yAnnouncer.instance = document.createElement('iron-a11y-announcer');
-        }
-
-        document.body.appendChild(Polymer.IronA11yAnnouncer.instance);
-      };
-    })();
-
-  </script>
-</dom-module>
-
-
 <dom-module id="paper-toast" assetpath="../bower_components/paper-toast/">
   <template>
     <style>
@@ -20761,7 +20881,7 @@ context. You should place this element as a child of `<body>` whenever possible.
 
         /**
          * Show the toast. Without arguments, this is the same as `open()` from `IronOverlayBehavior`.
-         * @param {Object|string|undefined} properties Properties to be set before opening the toast.
+         * @param {(Object|string)=} properties Properties to be set before opening the toast.
          * e.g. `toast.show('hello')` or `toast.show({text: 'hello', duration: 3000})`
          */
         show: function(properties) {
@@ -24376,7 +24496,7 @@ iron-image {
   height:50px;
   background-color: lightgray;
 }
-.meme-text, .meme-card-image {
+.meme-text, .meme-card-image, img {
   font-size: 34px;
   position: absolute;
   color: white;
@@ -24441,11 +24561,11 @@ paper-item span {
       <iron-pages id="memePages" selected="{{selectedMemeIndex}}">
 
         <template is="dom-repeat" items="[[memesDataResponse.data.memes]]">
-          <iron-swipeable-container swipe-style="curve">
+          <iron-swipeable-container swipe-style="curve" renewable="">
             <paper-card class="meme-card">
               
+              <iron-image style="height: 300px; width: 300px; background-color: lightgray;" sizing="cover" preload="" fade="" src="[[item.url]]"></iron-image>
               
-              <img src="[[item.url]]" style="height: 300px; width: 300px; background-color: lightgray;">
               <p class="meme-header meme-text">{{header}}</p>
               <p class="meme-footer meme-text">{{footer}}</p>
             </paper-card>
