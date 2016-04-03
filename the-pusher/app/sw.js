@@ -40,8 +40,7 @@ self.addEventListener('push', function(event) {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(subscription)
+        }
       })
       .then(function(response) {
         return response.json();
