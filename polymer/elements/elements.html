@@ -24668,9 +24668,9 @@ paper-item span {
 
         swiped: function(e) {
           if (e.detail.direction == 'left') {
-            this.$.memePages.selectPrevious();
-          } else if (e.detail.direction == 'right') {
             this.$.memePages.selectNext();
+          } else if (e.detail.direction == 'right') {
+            this.$.memePages.selectPrevious();
           }
         }
 
