@@ -10352,11 +10352,11 @@ this.fire('dom-change');
     _onTransitionEnd: function(event) {
       var target = event.currentTarget;
 
-      if (this._swipeComplete) {
+      if (this._swipeComplete && event.propertyName === 'opacity') {
         if (this.renewable) {
           target.style.transform = 'translate3d(0, 0, 0) rotate(0)';
           target.style.opacity = '1';
-        } else if (event.propertyName === 'opacity') {
+        } else {
           Polymer.dom(this).removeChild(target);
         }
         this.fire('iron-swipe',
@@ -24445,7 +24445,7 @@ span {
 paper-fab {
   position: fixed;
   bottom: 24px;
-  z-index: 9999;
+  z-index: 99;
   transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);;
 }
 
@@ -24582,7 +24582,7 @@ paper-item span {
       <div class="flexchild"></div>
       <paper-card class="meme-controls">
 
-          <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect" vertical-align="bottom" horizontal-align="left">
+          <paper-dropdown-menu label="Choose your meme" id="memeDropdownSelect">
             <paper-menu class="dropdown-content" selected="{{selectedMemeIndex}}">
               <template is="dom-repeat" items="[[memesDataResponse.data.memes]]" as="meme">
                 <paper-item>
@@ -24645,7 +24645,7 @@ paper-item span {
           }
         },
         listeners: {
-          'iron-swipe': 'nextPage',
+          'iron-swipe': 'swiped',
           'html-canvas-image-base64-created': '_htmlCanvasImageCreated'
         },
 
@@ -24666,13 +24666,14 @@ paper-item span {
         ready: function() {
         },
 
-        nextPage: function() {
-          this.$.memePages.selectNext();
-        },
-
-        previousPage: function() {
-          this.$.memePages.selectPrevious();
+        swiped: function(e) {
+          if (e.detail.direction == 'left') {
+            this.$.memePages.selectPrevious();
+          } else if (e.detail.direction == 'right') {
+            this.$.memePages.selectNext();
+          }
         }
+
       });
     })();
   </script>
